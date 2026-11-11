@@ -126,37 +126,129 @@ If the improved policy is the same as the old policy, the policy is considered s
 
 ```python
 
+
+import gymnasium as gym
+import numpy as np
+
+env = gym.make("FrozenLake-v1", map_name="4x4", is_slippery=True)
+env = env.unwrapped
+
+n_states = env.observation_space.n
+n_actions = env.action_space.n
+
+gamma = 0.99
+theta = 1e-8
+
+
 # -------------------------------------------------
 # Policy Evaluation
 # -------------------------------------------------
 
+def policy_evaluation(env, policy, gamma, theta):
 
+    V = np.zeros(env.observation_space.n)
+
+    while True:
+        delta = 0
+        for state in range(n_states):
+            v = V[state]
+            new_v = 0
+            for action, action_prob in enumerate(policy[state]):
+                for prob, next_state, reward, done in env.P[state][action]:
+                    new_v += action_prob * prob * (reward + gamma * V[next_state] * (not done))
+            V[state] = new_v
+            delta = max(delta, abs(v - V[state]))
+        if delta < theta:
+            break
+    return V
 
 # -------------------------------------------------
 # Policy Improvement
 # -------------------------------------------------
+def policy_improvement(env, V, policy, gamma):
+    policy_stable = True
+    for state in range(n_states):
+        old_action = np.argmax(policy[state])
+        action_values = np.zeros(n_actions)
+        for action in range(n_actions):
+            for prob, next_state, reward, done in env.P[state][action]:
+                action_values[action] += prob * (reward + gamma * V[next_state] * (not done))
+        best_action = np.argmax(action_values)
+        policy[state] = np.eye(n_actions)[best_action]
+        if old_action != best_action:
+            policy_stable = False
+    return policy, policy_stable
+
+
+
 
 #-------------------------------------------------
 # Policy Iteration
 # -------------------------------------------------
+def policy_iteration(env, gamma, theta):
+
+    iteration = 0
+
+    policy = np.ones((n_states, n_actions)) / n_actions
+
+    V = np.zeros(n_states)
+
+    while True:
+        V = policy_evaluation(env, policy, gamma, theta)
+        policy, policy_stable = policy_improvement(env, V, policy, gamma)
+
+        iteration += 1
+
+        if policy_stable:
+            break
+
+    return policy, V, iteration
 
 
+
+# ------------------------------------------------ -
+# Display Functions
+# ------------------------------------------------ -
+def print_value_function(V):
+    print("\nOptimal State-Value Function:")
+    print(np.round(V.reshape(4, 4), 4))
+
+def print_policy(policy):
+    action_symbols = {
+        0: "←",
+        1: "↓",
+        2: "→",
+        3: "↑"
+    }
+    best_actions = np.argmax(policy, axis=1)
+    policy_grid = np.array(
+        [action_symbols[action] for action in best_actions]
+    ).reshape(4, 4)
+    print("\nOptimal Policy:")
+    print(policy_grid)
+# ------------------------------------------------ -
+# Run Policy Iteration
+# ------------------------------------------------ -
+optimal_policy, optimal_value_function, _ = policy_iteration(
+    env,
+    gamma=gamma,
+    theta=theta
+)
+
+print("\n Name: Kailash V")
+print("Register Number: 212224240067")
+print_value_function(optimal_value_function)
+print_policy(optimal_policy)
+
+env.close()
 
 
 ```
 
 ## Output
 
-```text
+<img width="751" height="337" alt="image" src="https://github.com/user-attachments/assets/b35d60ed-1ab1-4b06-a01e-a29d9caccb3d" />
 
-Total policy iterations: 
-
-Optimal State-Value Function:
-
-
-Optimal Policy:
-
-```
 
 
 
@@ -164,17 +256,15 @@ Optimal Policy:
 
 ## Result
 
-```text
+
+The Policy Iteration algorithm was successfully implemented on the FrozenLake-v1 environment using Gymnasium. The agent repeatedly performed policy evaluation and policy improvement until the policy converged. The final output includes the optimal state-value function and the optimal policy for navigating the 4×4 FrozenLake environment. The learned policy maximizes the probability of reaching the goal while avoiding holes, even in the stochastic (slippery) environment.
 
 
 
-```
----
+
 
 ## Inference
-```text
 
+Policy Iteration effectively computes the optimal policy by alternating between evaluating the current policy and improving it based on the estimated value function. Compared to Value Iteration, it generally converges in fewer iterations, although each iteration requires more computation due to the policy evaluation step. This implementation demonstrates the application of Dynamic Programming in Reinforcement Learning and highlights how an agent can learn an optimal sequence of actions in a discrete Markov Decision Process (MDP) without interacting with the environment through trial and error.
 
-```
----
 
